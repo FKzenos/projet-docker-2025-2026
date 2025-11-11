@@ -1,0 +1,95 @@
+services:
+  # MySQL Database (shared between both sites)
+  mysql_laravel:
+    image: mysql:8.0
+    container_name: mysql_laravel
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: laravel_db
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: laravel_user
+      MYSQL_PASSWORD: laravel_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - laravel_network
+
+  # PHP-FPM for Site 1
+  php_laravel_site1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: php_laravel_site1
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./site-1:/var/www/html
+    networks:
+      - laravel_network
+    depends_on:
+      - mysql_laravel
+    environment:
+      - DB_HOST=mysql_laravel
+      - DB_DATABASE=laravel_db
+      - DB_USERNAME=laravel_user
+      - DB_PASSWORD=laravel_password
+
+  # PHP-FPM for Site 2
+  php_laravel_site2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: php_laravel_site2
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./site-2:/var/www/html
+    networks:
+      - laravel_network
+    depends_on:
+      - mysql_laravel
+    environment:
+      - DB_HOST=mysql_laravel
+      - DB_DATABASE=laravel_db
+      - DB_USERNAME=laravel_user
+      - DB_PASSWORD=laravel_password
+
+  # Nginx for Site 1
+  nginx_laravel_site1:
+    image: nginx:alpine
+    container_name: nginx_laravel_site1
+    restart: unless-stopped
+    ports:
+      - "8001:80"
+    volumes:
+      - ./site-1:/var/www/html
+      - ./nginx-site1.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - laravel_network
+    depends_on:
+      - php_laravel_site1
+
+  # Nginx for Site 2
+  nginx_laravel_site2:
+    image: nginx:alpine
+    container_name: nginx_laravel_site2
+    restart: unless-stopped
+    ports:
+      - "8002:80"
+    volumes:
+      - ./site-2:/var/www/html
+      - ./nginx-site2.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - laravel_network
+    depends_on:
+      - php_laravel_site2
+
+networks:
+  laravel_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
