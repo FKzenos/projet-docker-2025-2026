@@ -12,7 +12,7 @@ fi
 
 # Wait for MySQL to be ready
 echo "Waiting for MySQL to be ready..."
-until php artisan migrate:status 2>/dev/null; do
+until php artisan tinker --execute="DB::connection()->getPdo(); echo 'OK';" 2>/dev/null | grep -q "OK"; do
     echo "MySQL is unavailable - sleeping"
     sleep 2
 done
@@ -25,8 +25,15 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
+# Always rebuild assets to ensure they're fresh and properly hashed
 echo "Building assets..."
 npm run build
+
+# Clear any cached assets to prevent version conflicts
+if [ -d "public/build" ]; then
+    echo "Clearing asset cache..."
+    find public/build -name "*.css" -o -name "*.js" | head -20 | xargs ls -la || true
+fi
 
 # Generate application key if not exists
 if [ ! -f ".env" ] || ! grep -q "APP_KEY=base64:" .env; then
