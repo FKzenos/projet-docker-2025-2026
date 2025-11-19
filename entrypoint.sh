@@ -41,13 +41,28 @@ if [ ! -f ".env" ] || ! grep -q "APP_KEY=base64:" .env; then
     php artisan key:generate --force
 fi
 
-# Check if migrations have been run
-MIGRATION_CHECK=$(php artisan migrate:status 2>&1 | grep -c "No migrations found" || true)
-
-if [ "$MIGRATION_CHECK" -gt 0 ] || [ ! -f "database/.migrated" ]; then
+# Check if migrations have been run by checking migration status
+MIGRATION_STATUS=$(php artisan migrate:status 2>&1)
+if echo "$MIGRATION_STATUS" | grep -q "Migration table not found\|No migrations found"; then
     echo "Running migrations with seed..."
     php artisan migrate:fresh --seed --force
-    touch database/.migrated
+    if [ $? -eq 0 ]; then
+        touch database/.migrated
+        echo "Migrations completed successfully."
+    else
+        echo "Migrations failed!"
+        exit 1
+    fi
+elif [ ! -f "database/.migrated" ]; then
+    echo "Migration status unclear, running migrations to be safe..."
+    php artisan migrate:fresh --seed --force
+    if [ $? -eq 0 ]; then
+        touch database/.migrated
+        echo "Migrations completed successfully."
+    else
+        echo "Migrations failed!"
+        exit 1
+    fi
 else
     echo "Database already migrated."
 fi
